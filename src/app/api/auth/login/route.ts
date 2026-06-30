@@ -1,5 +1,4 @@
 // 登录 API 路由 - Cloudflare Pages Edge Runtime
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequestContext } from '@cloudflare/next-on-pages';
 import { verifyPassword } from '@/lib/auth/password';
@@ -11,14 +10,34 @@ export const runtime = 'edge';
 
 export async function POST(request: NextRequest): Promise<NextResponse<AuthResponse>> {
   try {
-    // 从 Cloudflare Pages getRequestContext 获取环境变量
-    const { env } = getRequestContext() as unknown as { env: import('@/lib/auth/types').CloudflareEnv };
-    
-    if (!env || !env.DB || !env.JWT_SECRET) {
+    // Cloudflare Pages 标准获取 env
+    const ctx = getRequestContext();
+    const env = ctx.env;
+
+    // 分层精准校验，不再笼统提示
+    if (!env) {
       return NextResponse.json(
         {
           success: false,
-          message: '环境变量未配置'
+          message: '错误：未读取到运行环境env'
+        },
+        { status: 500 }
+      );
+    }
+    if (!env.DB) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: '错误：当前环境缺少D1数据库绑定 DB'
+        },
+        { status: 500 }
+      );
+    }
+    if (!env.JWT_SECRET) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: '错误：当前环境缺少环境变量 JWT_SECRET'
         },
         { status: 500 }
       );
@@ -31,7 +50,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AuthRespo
     const body: LoginRequest = await request.json();
     const { email, password } = body;
 
-    // 验证输入
+    // 基础输入校验
     if (!email || !password) {
       return NextResponse.json(
         {
@@ -42,9 +61,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<AuthRespo
       );
     }
 
-    // 查找用户
+    // 查询用户
     const user = await getUserByEmail(db, email);
-
     if (!user) {
       return NextResponse.json(
         {
@@ -55,9 +73,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<AuthRespo
       );
     }
 
-    // 验证密码
+    // 校验密码
     const isValidPassword = await verifyPassword(password, user.password_hash);
-
     if (!isValidPassword) {
       return NextResponse.json(
         {
@@ -68,7 +85,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AuthRespo
       );
     }
 
-    // 创建 JWT Token
+    // 签发JWT
     const token = await createJWT(
       {
         userId: user.id,
@@ -78,7 +95,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AuthRespo
       jwtSecret
     );
 
-    // 返回成功响应，设置 Cookie
+    // 登录成功，返回用户+Cookie
     return NextResponse.json(
       {
         success: true,
