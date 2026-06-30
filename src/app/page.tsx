@@ -1,35 +1,132 @@
-import type { Metadata } from 'next';
-import Image from 'next/image';
+// 首页 - 显示用户登录状态
 
-export const metadata: Metadata = {
-  title: '扣子编程 - AI 开发伙伴',
-  description: '扣子编程，你的 AI 开发伙伴已就位',
-};
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
+interface User {
+  id: number;
+  email: string;
+  username: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function Home() {
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  // 获取当前用户信息
+  useEffect(() => {
+    fetchCurrentUser();
+  }, []);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/me');
+      const data = await response.json();
+
+      if (data.success && data.user) {
+        setUser(data.user);
+      } else {
+        setUser(null);
+      }
+    } catch (err) {
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    setError('');
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setUser(null);
+        router.push('/login');
+      } else {
+        setError(data.message);
+      }
+    } catch (err) {
+      setError('登出失败，请稍后重试');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-lg">加载中...</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-full items-center justify-center bg-background text-foreground transition-colors duration-300 dark:bg-background dark:text-foreground overflow-hidden min-h-screen">
-      {/* 主容器 */}
-      <main className="flex w-full h-full max-w-3xl flex-col items-center justify-center px-16 py-32 sm:items-center">
-        <div className="flex flex-col items-center justify-between gap-4">
-           <Image
-            src="https://lf-coze-web-cdn.coze.cn/obj/eden-cn/lm-lgvj/ljhwZthlaukjlkulzlp/coze-coding/icon/coze-coding.gif"
-            alt="扣子编程 Logo"
-            width={156}
-            height={130}
-          />
-          <div>
-            <div className="flex flex-col items-center gap-2 text-center sm:items-center sm:text-center">
-              <h1 className="max-w-xl text-base font-semibold leading-tight tracking-tight text-foreground dark:text-foreground">
-                应用开发中
-              </h1>
-              <p className="max-w-2xl text-sm leading-8 text-muted-foreground dark:text-muted-foreground">
-                请稍后，页面即将呈现
-              </p>
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-2xl">
+            {user ? '欢迎回来' : 'Cloudflare 认证系统'}
+          </CardTitle>
+          <CardDescription>
+            {user ? `${user.username}` : '请登录或注册您的账号'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {user ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-100 rounded-lg">
+                <div className="space-y-2">
+                  <div className="text-sm">
+                    <span className="font-semibold">用户 ID:</span> {user.id}
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-semibold">邮箱:</span> {user.email}
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-semibold">用户名:</span> {user.username}
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-semibold">注册时间:</span> {new Date(user.created_at).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              <Button onClick={handleLogout} variant="destructive" className="w-full">
+                登出
+              </Button>
             </div>
-          </div>
-        </div>
-      </main>
+          ) : (
+            <div className="space-y-4">
+              <Button asChild className="w-full">
+                <Link href="/login">登录</Link>
+              </Button>
+
+              <Button asChild variant="outline" className="w-full">
+                <Link href="/register">注册</Link>
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

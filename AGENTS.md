@@ -1,5 +1,9 @@
 # 项目上下文
 
+## 项目概述
+
+本项目是一个完整的用户认证系统，基于 Next.js 16 + Cloudflare Pages + D1 数据库构建。支持用户注册、登录、JWT 认证和 Cookie 会话管理。
+
 ### 版本技术栈
 
 - **Framework**: Next.js 16 (App Router)
@@ -7,29 +11,55 @@
 - **Language**: TypeScript 5
 - **UI 组件**: shadcn/ui (基于 Radix UI)
 - **Styling**: Tailwind CSS 4
+- **Runtime**: Edge Runtime (Cloudflare Pages)
+- **Database**: Cloudflare D1 (SQLite)
+- **Auth**: JWT + Cookie-based authentication
+- **Deployment**: Cloudflare Pages + GitHub
 
 ## 目录结构
 
 ```
+├── database/               # 数据库相关文件
+│   └── schema.sql          # D1 数据库表结构定义
 ├── public/                 # 静态资源
 ├── scripts/                # 构建与启动脚本
-│   ├── build.sh            # 构建脚本
+│   ├── build.sh            # 标准构建脚本
 │   ├── dev.sh              # 开发环境启动脚本
 │   ├── prepare.sh          # 预处理脚本
-│   └── start.sh            # 生产环境启动脚本
+│   ├── start.sh            # 生产环境启动脚本
+│   └── cf-build.sh         # Cloudflare Pages 构建脚本
 ├── src/
 │   ├── app/                # 页面路由与布局
+│   │   ├── api/auth/       # 认证 API 路由
+│   │   │   ├── register/   # 注册 API
+│   │   │   ├── login/      # 登录 API
+│   │   │   ├── logout/     # 登出 API
+│   │   │   └── me/         # 获取当前用户信息 API
+│   │   ├── register/       # 注册页面
+│   │   ├── login/          # 登录页面
+│   │   └── page.tsx        # 首页（用户状态展示）
 │   ├── components/ui/      # Shadcn UI 组件库
 │   ├── hooks/              # 自定义 Hooks
 │   ├── lib/                # 工具库
-│   │   └── utils.ts        # 通用工具函数 (cn)
+│   │   ├── utils.ts        # 通用工具函数 (cn)
+│   │   └── auth/           # 认证工具库
+│   │       ├── types.ts    # 认证类型定义
+│   │       ├── password.ts # 密码加密工具（PBKDF2）
+│   │       ├── jwt.ts      # JWT 工具（jose）
+│   │       └── db.ts       # D1 数据库操作工具
 │   └── server.ts           # 自定义服务端入口
+├── functions/              # Cloudflare Pages Functions 配置
+│   └ env.ts                # 环境变量绑定配置
+├── wrangler.toml           # Cloudflare Pages 配置文件
+├── .env.example            # 环境变量示例文件
+├── DEPLOYMENT.md           # 详细部署教程文档
 ├── next.config.ts          # Next.js 配置
 ├── package.json            # 项目依赖管理
 └── tsconfig.json           # TypeScript 配置
 ```
 
 - 项目文件（如 app 目录、pages 目录、components 等）默认初始化到 `src/` 目录下。
+- 认证相关代码集中在 `src/lib/auth/` 目录，便于维护和扩展。
 
 ## 包管理规范
 
@@ -63,3 +93,69 @@
 
 - 模板默认预装核心组件库 `shadcn/ui`，位于`src/components/ui/`目录下
 - Next.js 项目**必须默认**采用 shadcn/ui 组件、风格和规范，**除非用户指定用其他的组件和规范。**
+
+## 认证系统开发规范 (Authentication Standards)
+
+### Edge Runtime 规范
+
+- 所有 API Routes **必须**声明 `export const runtime = 'edge'`
+- 禁止使用 Node.js 特有的 API（如 fs、path、crypto（使用 Web Crypto API））
+- 使用 `getRequestContext().env` 获取 Cloudflare 环境变量，而不是 `process.env`
+
+### 密码加密规范
+
+- 使用 Web Crypto API 的 PBKDF2 算法（100000 次迭代）
+- 必须使用随机盐值（16 字节）
+- 密码长度验证：最少 6 字符（建议 8+）
+- 加密后的密码格式：`salt:hash`
+
+### JWT 认证规范
+
+- 使用 jose 包处理 JWT（Edge Runtime 兼容）
+- JWT 有效期：7 天
+- JWT 必包含：userId、email、username
+- 使用 HS256 算法签名
+- JWT_SECRET 必须至少 32 字符
+
+### Cookie 安全规范
+
+- 必须设置 HttpOnly（防止 XSS）
+- 必须设置 Secure（仅 HTTPS）
+- 必须设置 SameSite=Strict（防止 CSRF）
+- Cookie 名称：`auth_token`
+- 有效期：7 天（与 JWT 一致）
+
+### D1 数据库规范
+
+- 所有数据库操作通过 `src/lib/auth/db.ts` 封装
+- 使用 SQLite 语法（D1 基于 SQLite）
+- 必须创建索引加速查询（email、username）
+- 使用参数化查询防止 SQL 注入
+
+### 环境变量规范
+
+- 生产环境变量通过 Cloudflare Dashboard 配置
+- 必须配置：JWT_SECRET、DB（D1 binding）
+- 禁止在代码中硬编码密钥
+- 禁止将 `.env.local` 提交到 Git
+
+## Cloudflare Pages 部署规范
+
+### 构建命令规范
+
+- 生产构建：`bash scripts/cf-build.sh`（使用 @cloudflare/next-on-pages）
+- 本地开发：`wrangler pages dev .vercel/output/static --compatibility-flag=nodejs_compat_v2`
+- 禁止使用默认的 Next.js 构建命令
+
+### wrangler.toml 配置规范
+
+- 必须配置 D1 数据库绑定（binding: DB）
+- 必须设置 compatibility_flags: ["nodejs_compat_v2"]
+- database_id 必须替换为实际值（通过 Cloudflare Dashboard 获取）
+
+### 常见错误规避
+
+1. **wrangler deploy 报错**：检查 D1 binding 配置
+2. **页面 404**：确认构建输出目录为 `.vercel/output/static`
+3. **自定义 server 冲突**：移除 src/server.ts，使用 Edge Runtime
+4. **环境变量未生效**：在 Cloudflare Dashboard 配置，确保 binding 名称正确
