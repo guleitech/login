@@ -1,14 +1,15 @@
 # wrangler.toml
-name = "你的项目名称"
-main = ".open-next/worker.js"
+# Cloudflare Pages 配置文件
+# 注意：JWT_SECRET 等敏感变量请在 Cloudflare Dashboard > Pages > Settings > Environment variables 中配置
+# 不要在此文件中写入密钥值，wrangler.toml 的 [vars] 会覆盖 Dashboard 配置
+
+name = "cloudflare-auth-system"
 compatibility_date = "2026-07-03"
-compatibility_flags = ["nodejs_compat"]
+compatibility_flags = ["nodejs_compat_v2"]
 
-# 关键：登记JWT_SECRET变量白名单，值留空，真实密钥存在CF后台
-[vars]
-JWT_SECRET = ""
-
-# 静态资源绑定
-[assets]
-directory = ".open-next/assets"
-binding = "ASSETS"
+# D1 数据库绑定
+# 请将 database_id 替换为你的实际 D1 数据库 ID（在 CF Dashboard > D1 中查看）
+[[d1_databases]]
+binding = "DB"
+database_name = "auth-database"
+database_id = "YOUR_D1_DATABASE_ID"
