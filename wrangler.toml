@@ -1,0 +1,14 @@
+# wrangler.toml
+name = "你的项目名称"
+main = ".open-next/worker.js"
+compatibility_date = "2026-07-03"
+compatibility_flags = ["nodejs_compat"]
+
+# 关键：登记JWT_SECRET变量白名单，值留空，真实密钥存在CF后台
+[vars]
+JWT_SECRET = ""
+
+# 静态资源绑定
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
