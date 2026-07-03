@@ -11,5 +11,5 @@ compatibility_flags = ["nodejs_compat_v2"]
 # 请将 database_id 替换为你的实际 D1 数据库 ID（在 CF Dashboard > D1 中查看）
 [[d1_databases]]
 binding = "DB"
-database_name = "auth-database"
-database_id = "YOUR_D1_DATABASE_ID"
+database_name = "user_auth"
+database_id = "a7f5d69f-0c11-4a85-89e3-00dde566ea93"
