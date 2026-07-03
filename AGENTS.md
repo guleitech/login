@@ -23,10 +23,13 @@
 │   └── schema.sql          # D1 数据库表结构定义
 ├── public/                 # 静态资源
 ├── scripts/                # 构建与启动脚本
-│   ├── build.sh            # 标准构建脚本
+│   ├── build.sh            # 部署构建脚本（install + next build + tsup）
+│   ├── start.sh            # 部署启动脚本（node dist/server.js）
+│   ├── coze-preview-build.sh  # Coze 预览构建脚本（install）
+│   ├── coze-preview-run.sh    # Coze 预览运行脚本（tsx watch src/server.ts）
 │   ├── dev.sh              # 开发环境启动脚本
 │   ├── prepare.sh          # 预处理脚本
-│   ├── start.sh            # 生产环境启动脚本
+│   ├── validate.sh         # 校验脚本（ts-check + lint）
 │   └── cf-build.sh         # Cloudflare Pages 构建脚本
 ├── src/
 │   ├── app/                # 页面路由与布局
@@ -159,3 +162,36 @@
 2. **页面 404**：确认构建输出目录为 `.vercel/output/static`
 3. **自定义 server 冲突**：移除 src/server.ts，使用 Edge Runtime
 4. **环境变量未生效**：在 Cloudflare Dashboard 配置，确保 binding 名称正确
+
+## Coze 平台配置
+
+### 项目识别
+
+- **项目类型**：Web 预览型项目（Next.js 16 + 自定义服务器）
+- **技术项目根目录**：与工作区根目录重合（`path = ["."]`）
+- **运行时**：Node.js 24（`requires = ["nodejs-24"]`）
+- **部署产物入口**：`dist/server.js`（通过 tsup 打包 `src/server.ts`）
+
+### 预览链路
+
+- **判定依据**：项目核心结果需要通过浏览器访问的 Web 页面呈现，属于 `web` 类型，可预览
+- **预览入口**：自定义 Next.js 服务器（`src/server.ts`），通过 `tsx watch` 启动开发模式
+- **预览脚本**：
+  - `scripts/coze-preview-build.sh` — 安装依赖（短时执行）
+  - `scripts/coze-preview-run.sh` — 启动预览服务，绑定 `0.0.0.0:5000`，具备幂等性
+- **根 `.coze` `[dev]`** 指向上述预览脚本
+
+### 部署配置
+
+- **部署类型**：`service` / `web`
+- **部署脚本**：
+  - `scripts/build.sh` — 安装依赖 → `next build` → `tsup` 打包服务端
+  - `scripts/start.sh` — 通过 `node dist/server.js` 启动生产服务，端口 5000
+- **根 `.coze` `[deploy]`** 指向上述部署脚本
+
+### 维护注意事项
+
+- 所有脚本（预览和部署）均基于 `SCRIPT_DIR` 推导项目根目录，不依赖调用时的 `pwd` 或 `COZE_WORKSPACE_PATH`
+- 预览服务必须绑定 `0.0.0.0:5000`，`HOSTNAME` 环境变量在 `coze-preview-run.sh` 中显式设置
+- 部署构建产物为 `dist/server.js`，修改 `src/server.ts` 后需重新构建
+- 禁止使用 9000 端口；禁止使用 npm/yarn，仅允许 pnpm

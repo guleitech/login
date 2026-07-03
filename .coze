@@ -1,12 +1,19 @@
 [project]
+sub_id = "b058b69c"
+name = "projects"
+entrypoint = "dist/server.js"
 requires = [ "nodejs-24" ]
+project_type = "web"
 template = "nextjs"
 version = "0.0.28"
 appliedPatches = [ ]
 
+[preview]
+preview_enable = "enabled"
+
 [dev]
-build = [ "bash", "./scripts/prepare.sh" ]
-run = [ "bash", "./scripts/dev.sh" ]
+build = [ "bash", "./scripts/coze-preview-build.sh" ]
+run = [ "bash", "./scripts/coze-preview-run.sh" ]
 validate = [ "bash", "./scripts/validate.sh" ]
 deps = [ "git" ]
 
@@ -14,3 +21,10 @@ deps = [ "git" ]
 build = [ "bash", "./scripts/build.sh" ]
 run = [ "bash", "./scripts/start.sh" ]
 deps = [ "git" ]
+
+[deploy.profile]
+kind = "service"
+flavor = "web"
+
+[subprojects]
+path = ["."]
